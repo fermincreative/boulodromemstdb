@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ $result->title }} — {{ config('membership_card.association_name') }}</title>
+    <style>
+        :root { --accent: #E5D0A7; --ok: #15803d; --ok-bg: #dcfce7; --bad: #b91c1c; --bad-bg: #fee2e2; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "DejaVu Sans", -apple-system, "Segoe UI", Roboto, sans-serif; background: #f4f4f5; color: #111; }
+        header { background: #000; color: var(--accent); text-align: center; padding: 1.25rem 1rem 1rem; border-bottom: 6px solid var(--accent); }
+        header h1 { margin: 0; font-size: 1.35rem; }
+        header p { margin: .35rem 0 0; font-size: .7rem; letter-spacing: .25em; color: #AC9C7D; }
+        main { max-width: 26rem; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
+        .status { border-radius: 1rem; padding: 1.5rem 1rem; text-align: center; }
+        .status.ok { background: var(--ok-bg); color: var(--ok); }
+        .status.bad { background: var(--bad-bg); color: var(--bad); }
+        .icon { width: 5.5rem; height: 5.5rem; margin: 0 auto .75rem; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+        .ok .icon { background: var(--ok); }
+        .bad .icon { background: var(--bad); }
+        .icon svg { width: 3.25rem; height: 3.25rem; }
+        .status h2 { margin: 0; font-size: 1.75rem; }
+        .status p { margin: .5rem 0 0; font-size: 1rem; color: #333; }
+        .member { background: #fff; border-radius: 1rem; margin-top: 1rem; padding: 1rem 1.25rem; }
+        .member .name { font-size: 1.2rem; font-weight: 700; }
+        .member dl { display: grid; grid-template-columns: auto 1fr; gap: .35rem 1rem; margin: .75rem 0 0; font-size: .95rem; }
+        .member dt { color: #71717a; }
+        .member dd { margin: 0; font-weight: 600; }
+        .year { display: inline-block; padding: .05rem .55rem; border-radius: .4rem; font-weight: 700; }
+        .notice { margin-top: 1rem; background: #fef9c3; color: #854d0e; border-radius: .75rem; padding: .75rem 1rem; font-size: .9rem; }
+        .checked { text-align: center; color: #71717a; font-size: .8rem; margin-top: 1.25rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>{{ config('membership_card.association_name') }}</h1>
+        <p>KAARTCONTROLE</p>
+    </header>
+
+    <main>
+        <section class="status {{ $result->valid ? 'ok' : 'bad' }}" role="status">
+            <div class="icon" aria-hidden="true">
+                @if ($result->valid)
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+                @else
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                @endif
+            </div>
+            <h2>{{ $result->title }}</h2>
+            @if ($result->message)
+                <p>{{ $result->message }}</p>
+            @endif
+        </section>
+
+        @if ($result->member)
+            <section class="member">
+                <div class="name">{{ $result->member->full_name }}</div>
+                <dl>
+                    <dt>Lidnummer</dt>
+                    <dd>{{ $result->member->display_number }}</dd>
+                    @if ($result->membership)
+                        @php($yearStyle = app(\App\Services\CardYearStyles::class)->for($result->membership->cardYear()))
+                        <dt>Jaar</dt>
+                        <dd><span class="year" style="background: {{ $yearStyle['badge'] }}; color: {{ $yearStyle['text'] }}">{{ $result->membership->cardYear() }}</span></dd>
+                    @endif
+                </dl>
+            </section>
+        @endif
+
+        @if ($result->notice)
+            <div class="notice">{{ $result->notice }}</div>
+        @endif
+
+        <p class="checked">Gecontroleerd op {{ $checkedAt->format('d-m-Y') }} om {{ $checkedAt->format('H:i') }}</p>
+    </main>
+</body>
+</html>
