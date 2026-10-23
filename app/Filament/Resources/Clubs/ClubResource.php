@@ -8,9 +8,11 @@ use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use UnitEnum;
@@ -40,6 +42,12 @@ class ClubResource extends Resource
                     ->required()
                     ->unique(ignoreRecord: true)
                     ->maxLength(255),
+                Toggle::make('pays_collectively')
+                    ->label('Vereniging betaalt de contributie')
+                    ->helperText('Leden van deze vereniging krijgen geen eigen betaalverzoek. Bij de verlenging wachten zij op betaling door de vereniging; daarna activeert u ze in één keer.'),
+                Toggle::make('is_signup_club')
+                    ->label('Vereniging voor het aanmeldformulier')
+                    ->helperText('Iedereen die zich via de website aanmeldt, wordt lid via deze vereniging. Er kan maar één zijn.'),
             ]);
     }
 
@@ -51,6 +59,12 @@ class ClubResource extends Resource
                     ->label('Naam')
                     ->searchable()
                     ->sortable(),
+                IconColumn::make('pays_collectively')
+                    ->label('Betaalt contributie')
+                    ->boolean(),
+                IconColumn::make('is_signup_club')
+                    ->label('Aanmeldformulier')
+                    ->boolean(),
                 TextColumn::make('members_count')
                     ->label('Leden')
                     ->counts(['members' => fn ($query) => $query->current()])

@@ -30,6 +30,27 @@
         .year { display: inline-block; padding: .05rem .55rem; border-radius: .4rem; font-weight: 700; }
         .notice { margin-top: 1rem; background: #fef9c3; color: #854d0e; border-radius: .75rem; padding: .75rem 1rem; font-size: .9rem; }
         .checked { text-align: center; color: #71717a; font-size: .8rem; margin-top: 1.25rem; }
+        /* Staff only (logged in to the admin panel in this browser). */
+        .flash { margin-top: 1rem; border-radius: .75rem; padding: .75rem 1rem; font-size: .95rem; }
+        .flash.ok { background: var(--ok-bg); color: var(--ok); }
+        .flash.bad { background: var(--bad-bg); color: var(--bad); }
+        .manage { background: #fff; border-radius: 1rem; margin-top: 1rem; padding: 1rem 1.25rem; border: 2px solid var(--accent); }
+        .manage h3 { margin: 0 0 .75rem; font-size: 1rem; display: flex; justify-content: space-between; gap: .5rem; }
+        .manage h3 span { font-weight: 400; color: #71717a; font-size: .8rem; }
+        .manage dl { display: grid; grid-template-columns: auto 1fr; gap: .35rem 1rem; margin: 0 0 .75rem; font-size: .95rem; }
+        .manage dt { color: #71717a; }
+        .manage dd { margin: 0; overflow-wrap: anywhere; }
+        .manage a { color: #8a6d3b; }
+        .payment { border-top: 1px solid #e4e4e7; padding: .6rem 0; }
+        .payment p { margin: 0 0 .5rem; }
+        .manage form { margin: 0; }
+        .btn { display: block; width: 100%; font: inherit; font-weight: 700; border: 0; border-radius: .6rem; padding: .8rem 1rem; cursor: pointer; text-align: center; text-decoration: none; }
+        .btn-pay { background: var(--ok); color: #fff; }
+        .btn-dark { background: #000; color: var(--accent) !important; margin-top: .5rem; }
+        .btn-light { background: #f4f4f5; color: #111 !important; margin-top: .5rem; }
+        .hint { font-size: .85rem; color: #71717a; margin: .5rem 0; }
+        .staff-login { text-align: center; font-size: .8rem; margin-top: .5rem; }
+        .staff-login a { color: #a1a1aa; }
     </style>
 </head>
 <body>
@@ -72,7 +93,71 @@
             <div class="notice">{{ $result->notice }}</div>
         @endif
 
+        @if (session('card_check'))
+            <div class="flash ok" role="status">{{ session('card_check') }}</div>
+        @endif
+        @if (session('card_check_error'))
+            <div class="flash bad" role="alert">{{ session('card_check_error') }}</div>
+        @endif
+
+        @if ($manage)
+            @php($member = $manage['member'])
+            <section class="manage" aria-label="Beheer">
+                <h3>Beheer <span>{{ $staff->name }}</span></h3>
+                <dl>
+                    <dt>Vereniging</dt>
+                    <dd>{{ $member->club?->name ?? 'Geen' }}{{ $member->paysCollectively() ? ' (betaalt de contributie)' : '' }}</dd>
+                    <dt>E-mail</dt>
+                    <dd>@if ($member->email)<a href="mailto:{{ $member->email }}">{{ $member->email }}</a>@else — @endif</dd>
+                    <dt>Mobiel</dt>
+                    <dd>@if ($member->phone_mobile)<a href="tel:{{ preg_replace('/[^0-9+]/', '', $member->phone_mobile) }}">{{ $member->phone_mobile }}</a>@else — @endif</dd>
+                    @if ($member->phone_home)
+                        <dt>Thuis</dt>
+                        <dd><a href="tel:{{ preg_replace('/[^0-9+]/', '', $member->phone_home) }}">{{ $member->phone_home }}</a></dd>
+                    @endif
+                </dl>
+
+                @foreach ($manage['openPayments'] as $payment)
+                    <div class="payment">
+                        <p>Openstaand: {{ $payment->description }} — <strong>{{ \App\Support\Money::format($payment->amount_cents) }}</strong></p>
+                        @if ($manage['payments']->contains($payment))
+                            <form method="post" action="{{ route('card.check.collect', $payment) }}"
+                                  onsubmit="return confirm('{{ \App\Support\Money::format($payment->amount_cents) }} contant ontvangen van {{ addslashes($member->full_name) }}?')">
+                                @csrf
+                                <input type="hidden" name="return" value="{{ request()->fullUrl() }}">
+                                <button type="submit" class="btn btn-pay">Contant ontvangen</button>
+                            </form>
+                        @endif
+                    </div>
+                @endforeach
+
+                @if ($manage['renewYear'])
+                    <div class="payment">
+                        <p>Nog niet verlengd voor {{ $manage['renewYear'] }}.</p>
+                        <form method="post" action="{{ route('card.check.renew', $member) }}"
+                              onsubmit="return confirm('{{ addslashes($member->full_name) }} verlengen voor {{ $manage['renewYear'] }} en {{ \App\Support\Money::format($manage['renewFee']) }} contant ontvangen?')">
+                            @csrf
+                            <input type="hidden" name="return" value="{{ request()->fullUrl() }}">
+                            <button type="submit" class="btn btn-pay">Verlengen voor {{ $manage['renewYear'] }} en {{ \App\Support\Money::format($manage['renewFee']) }} contant ontvangen</button>
+                        </form>
+                    </div>
+                @endif
+
+                @if (! $result->valid && $member->paysCollectively())
+                    <p class="hint">De contributie wordt betaald door {{ $member->club->name }}. Activeer het lidmaatschap in de ledenadministratie (Verlengingen → Wacht op vereniging) zodra de vereniging heeft betaald.</p>
+                @endif
+
+                <a class="btn btn-dark" href="{{ $manage['viewUrl'] }}">Openen in ledenadministratie</a>
+                @if ($manage['editUrl'])
+                    <a class="btn btn-light" href="{{ $manage['editUrl'] }}">Gegevens wijzigen</a>
+                @endif
+            </section>
+        @endif
+
         <p class="checked">Gecontroleerd op {{ $checkedAt->format('d-m-Y') }} om {{ $checkedAt->format('H:i') }}</p>
+        @unless ($staff)
+            <p class="staff-login"><a href="{{ route('card.check.login', ['return' => request()->fullUrl()]) }}">Beheerder? Inloggen</a></p>
+        @endunless
     </main>
 </body>
 </html>

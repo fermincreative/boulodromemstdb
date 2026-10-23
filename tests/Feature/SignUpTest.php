@@ -8,6 +8,7 @@ use App\Models\Club;
 use App\Models\MailTemplate;
 use App\Models\Member;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
@@ -39,7 +40,6 @@ function signUpData(array $overrides = []): array
         'city' => 'Maastricht',
         'country' => 'Nederland',
         'birthday' => '10/9/1962',
-        'club_id' => Club::firstWhere('name', 'Mosa Petanca')->id,
         'consent' => '1',
         'website' => '',
         // Shown a minute ago, as a person would.
@@ -53,7 +53,13 @@ it('shows the form with today\'s fee', function () {
         ->assertOk()
         ->assertSee('Word lid van Boulodrôme Maastricht')
         ->assertSee('€ 22,50 (instap vanaf 1 oktober)')
-        ->assertSee('Mosa Petanca');
+        ->assertDontSee('name="club_id"', false);
+});
+
+it('explains that everyone joins through SBM Halpas and the other clubs sign up their own members', function () {
+    get('/aanmelden')
+        ->assertSee('Stichting Boulodrôme Maastricht')
+        ->assertSee('Bent u lid van JBC Amby of Mosa Petanca? Dan hoeft u zich hier niet aan te melden');
 });
 
 it('creates the member with an open payment and shows the payment details', function () {
@@ -69,7 +75,7 @@ it('creates the member with an open payment and shows the payment details', func
     expect($member->full_name)->toBe('Marie de Vries')
         ->and($member->email)->toBe('marie.devries@example.nl')
         ->and($member->birthday->toDateString())->toBe('1962-09-10')
-        ->and($member->club->name)->toBe('Mosa Petanca')
+        ->and($member->club->name)->toBe('SBM Halpas')
         ->and($member->joined_at->toDateString())->toBe('2026-10-18')
         ->and($member->memberships()->sole()->status)->toBe(MembershipStatus::Pending)
         ->and($member->payments()->sole()->status)->toBe(PaymentStatus::Open)
@@ -97,8 +103,64 @@ it('validates the form in Dutch', function (array $data, string $field, string $
     'bad date' => [['birthday' => '31-02-1990'], 'birthday', 'Vul een geldige datum in, bijvoorbeeld 10-09-1992.'],
     'future birthday' => [['birthday' => '01-01-2030'], 'birthday', 'Controleer uw geboortedatum.'],
     'no consent' => [['consent' => null], 'consent', 'U moet akkoord gaan met het gebruik van uw gegevens voor de ledenadministratie.'],
-    'unknown club' => [['club_id' => 9999], 'club_id', 'De gekozen vereniging is ongeldig.'],
 ]);
+
+it('always makes the member join the sign-up club, whatever is posted', function () {
+    post('/aanmelden', signUpData(['club_id' => Club::firstWhere('name', 'Mosa Petanca')->id]));
+
+    expect(Member::sole()->club->name)->toBe('SBM Halpas')
+        ->and(Member::sole()->payments()->sole()->amount_cents)->toBe(2250);
+});
+
+it('follows the sign-up club setting', function () {
+    Club::firstWhere('name', 'JBC Amby')->update(['is_signup_club' => true]);
+
+    post('/aanmelden', signUpData());
+
+    expect(Member::sole()->club->name)->toBe('JBC Amby')
+        ->and(Club::where('is_signup_club', true)->count())->toBe(1);
+});
+
+describe('iDEAL', function () {
+    beforeEach(fn () => config(['services.mollie.key' => 'test_abc']));
+
+    it('sends the new member straight to the Mollie checkout', function () {
+        Http::fake(['api.mollie.com/v2/payments' => Http::response(molliePayment('tr_signup', 'open', '22.50', null))]);
+
+        post('/aanmelden', signUpData())->assertRedirect('https://www.mollie.com/checkout/tr_signup');
+
+        $payment = Member::sole()->payments()->sole();
+        expect($payment->mollie_id)->toBe('tr_signup');
+        Http::assertSent(fn ($request) => $request['amount'] === ['currency' => 'EUR', 'value' => '22.50']
+            && $request['metadata'] === ['payment_id' => $payment->id]
+            && $request['method'] === ['ideal', 'bancontact']
+            && str_contains($request['redirectUrl'], "/betalen/{$payment->id}/klaar?signature="));
+    });
+
+    it('puts the iDEAL link in the welcome e-mail', function () {
+        Http::fake(['api.mollie.com/*' => Http::response(molliePayment('tr_signup', 'open', '22.50', null))]);
+
+        post('/aanmelden', signUpData());
+
+        $payment = Member::sole()->payments()->sole();
+        Queue::assertPushed(SendMemberMail::class, fn (SendMemberMail $job) => str_contains($job->body, "/betalen/{$payment->id}?signature="));
+    });
+
+    it('falls back to the thank-you page when Mollie is down', function () {
+        Http::fake(['api.mollie.com/*' => Http::response(['detail' => 'Down'], 500)]);
+
+        followingRedirects()->post('/aanmelden', signUpData())
+            ->assertSee('Bedankt voor uw aanmelding, Marie!')
+            ->assertSee('Betalen met iDEAL of Bancontact')
+            ->assertSee('NL96 ABNA 0617 0464 84');
+
+        expect(Member::count())->toBe(1);
+    });
+
+    it('says so on the form', function () {
+        get('/aanmelden')->assertSee('betaal daarna direct met iDEAL of Bancontact')->assertSee('Aanmelden en betalen');
+    });
+});
 
 it('keeps what was typed when there are errors', function () {
     followingRedirects()->from('/aanmelden')->post('/aanmelden', signUpData(['email' => 'fout']))

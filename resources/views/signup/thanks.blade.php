@@ -1,38 +1,46 @@
 @extends('layouts.public')
 
-@section('title', 'Bedankt voor uw aanmelding')
-@section('subtitle', 'Lid worden')
+@section('title', __('signup.thanks.title'))
+@section('subtitle', __('signup.subtitle'))
 
 @push('head')
     <style>
         dl { display: grid; grid-template-columns: auto 1fr; gap: .4rem 1.25rem; margin: 0 0 1rem; }
         dt { color: var(--muted); }
         dd { margin: 0; font-weight: 600; word-break: break-word; }
+        .button { display: block; text-align: center; font-weight: 700; background: #000; color: var(--accent); border-radius: .6rem; padding: .85rem 1.5rem; text-decoration: none; }
+        .button:hover { background: #222; }
     </style>
 @endpush
 
 @section('content')
     <div class="card">
         @if ($signup)
-            <h2>Bedankt voor uw aanmelding, {{ $signup['name'] }}!</h2>
-            <p>Uw lidnummer is <strong>{{ $signup['number'] }}</strong>. Wij hebben de betaalgegevens ook naar <strong>{{ $signup['email'] }}</strong> gestuurd.</p>
+            <h2>{{ __('signup.thanks.heading_named', ['name' => $signup['name']]) }}</h2>
+            <p>{!! __('signup.thanks.number', ['number' => e($signup['number']), 'email' => e($signup['email'])]) !!}</p>
         @else
-            <h2>Bedankt voor uw aanmelding!</h2>
-            <p>U ontvangt binnen enkele minuten een e-mail met de betaalgegevens.</p>
+            <h2>{{ __('signup.thanks.heading') }}</h2>
+            <p>{{ __('signup.thanks.mail_follows') }}</p>
         @endif
     </div>
 
     @if ($signup)
         <div class="card">
-            <h2>Contributie betalen</h2>
-            <p>{{ $signup['description'] }}: <strong>{{ $signup['amount'] }}</strong>. Wilt u dit bedrag overmaken naar:</p>
+            <h2>{{ __('signup.thanks.pay_title') }}</h2>
+            @if (! empty($signup['pay_url']))
+                <p>{!! __('signup.thanks.amount', ['description' => e($signup['description']), 'amount' => e($signup['amount'])]) !!}</p>
+                <p><a class="button" href="{{ $signup['pay_url'] }}">{{ __('signup.thanks.pay_online', ['methods' => $signup['online_methods'] ?? 'iDEAL']) }}</a></p>
+                <p>{{ __('signup.thanks.or_transfer') }}</p>
+            @else
+                <p>{!! __('signup.thanks.amount_transfer', ['description' => e($signup['description']), 'amount' => e($signup['amount'])]) !!}</p>
+            @endif
             <dl>
-                <dt>Rekeningnummer</dt><dd>{{ $signup['iban'] }}</dd>
-                <dt>Ten name van</dt><dd>{{ $signup['holder'] }}</dd>
-                <dt>Bedrag</dt><dd>{{ $signup['amount'] }}</dd>
-                <dt>Omschrijving</dt><dd>{{ $signup['reference'] }}</dd>
+                <dt>{{ __('signup.thanks.iban') }}</dt><dd>{{ $signup['iban'] }}</dd>
+                <dt>{{ __('signup.thanks.holder') }}</dt><dd>{{ $signup['holder'] }}</dd>
+                <dt>{{ __('signup.thanks.amount_label') }}</dt><dd>{{ $signup['amount'] }}</dd>
+                <dt>{{ __('signup.thanks.reference') }}</dt><dd>{{ $signup['reference'] }}</dd>
             </dl>
-            <p class="muted">Zodra wij uw betaling hebben ontvangen, sturen wij uw lidmaatschapskaart per e-mail.</p>
+            <p class="muted">{{ __('signup.thanks.card_follows') }}</p>
         </div>
     @endif
 @endsection

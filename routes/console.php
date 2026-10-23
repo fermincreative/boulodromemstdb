@@ -13,6 +13,10 @@ Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3')
     ->withoutOverlapping()
     ->runInBackground();
 
+Schedule::command('model:prune')
+    ->dailyAt('03:00')
+    ->withoutOverlapping();
+
 Schedule::command('db:backup')
     ->dailyAt('02:30')
     ->withoutOverlapping();

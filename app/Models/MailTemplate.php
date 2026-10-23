@@ -23,6 +23,8 @@ class MailTemplate extends Model
 
     public const CANCELLATION = 'cancellation';
 
+    public const RENEWAL = 'renewal';
+
     public static function forKey(string $key): self
     {
         return static::where('key', $key)->firstOrFail();

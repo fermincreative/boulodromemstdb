@@ -4,6 +4,7 @@ namespace App\Filament\Forms;
 
 use App\Filament\Resources\MailTemplates\MailTemplateResource;
 use App\Models\MailTemplate;
+use App\Services\MailTemplates;
 use Closure;
 use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\TextInput;
@@ -16,9 +17,10 @@ class MailFields
 {
     /**
      * @param  (Closure(): bool)|bool  $visible
+     * @param  string|null  $placeholdersFor  Template key: the text keeps its {placeholders}, filled in per member (bulk sends).
      * @return array<int, TextInput|MarkdownEditor>
      */
-    public static function make(Closure|bool $visible = true): array
+    public static function make(Closure|bool $visible = true, ?string $placeholdersFor = null): array
     {
         return [
             TextInput::make('subject')
@@ -32,7 +34,10 @@ class MailFields
                 ->visible($visible)
                 ->toolbarButtons([['bold', 'italic', 'link'], ['bulletList', 'orderedList'], ['undo', 'redo']])
                 ->helperText(fn (): HtmlString => new HtmlString(
-                    'Wijzigingen gelden alleen voor deze e-mail. De standaardtekst past u aan onder '
+                    ($placeholdersFor
+                        ? 'Invulvelden worden per lid ingevuld: '.e(implode(' ', array_keys(MailTemplates::placeholders($placeholdersFor)))).'<br>Wijzigingen gelden alleen voor deze verzending. '
+                        : 'Wijzigingen gelden alleen voor deze e-mail. ')
+                    .'De standaardtekst past u aan onder '
                     .(auth()->user()?->can('viewAny', MailTemplate::class)
                         ? '<a class="underline" href="'.e(MailTemplateResource::getUrl()).'" target="_blank">Beheer → E-mailteksten</a>.'
                         : 'Beheer → E-mailteksten (beheerders).')

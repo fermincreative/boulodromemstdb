@@ -9,6 +9,7 @@ enum PaymentMethod: string implements HasLabel
     case Cash = 'cash';
     case BankTransfer = 'bank_transfer';
     case Ideal = 'ideal';
+    case Bancontact = 'bancontact';
 
     public function getLabel(): string
     {
@@ -16,11 +17,28 @@ enum PaymentMethod: string implements HasLabel
             self::Cash => 'Contant',
             self::BankTransfer => 'Overboeking',
             self::Ideal => 'iDEAL',
+            self::Bancontact => 'Bancontact',
         };
     }
 
     /**
-     * Methods a person can register by hand (iDEAL comes later, via Mollie).
+     * The method a Mollie payment was paid with (Mollie method id, e.g. "bancontact").
+     */
+    public static function fromMollie(?string $method): self
+    {
+        return self::tryFrom((string) $method) ?? self::Ideal;
+    }
+
+    /**
+     * Paid online through Mollie.
+     */
+    public function isOnline(): bool
+    {
+        return in_array($this, [self::Ideal, self::Bancontact], true);
+    }
+
+    /**
+     * Methods a person can register by hand (online payments come in through Mollie).
      *
      * @return array<string, string>
      */

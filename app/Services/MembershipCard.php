@@ -7,6 +7,7 @@ use App\Support\Color;
 use GdImage;
 use RuntimeException;
 use TCPDF;
+use TCPDF2DBarcode;
 
 /**
  * Renders the membership card as PDF: a "phone" version (70 × 150 mm page) and a "print" version
@@ -119,6 +120,30 @@ class MembershipCard
     /**
      * The URL encoded in the QR code.
      */
+    /**
+     * The card's QR code as inline SVG for a web page: the same payload and error correction as on the PDF,
+     * with a white quiet zone so phone scanners read it from a screen.
+     */
+    public function qrSvg(Membership $membership): string
+    {
+        $qr = (new TCPDF2DBarcode($this->qrPayload($membership), 'QRCODE,M'))->getBarcodeArray();
+        $quiet = 4;
+        $size = $qr['num_cols'] + 2 * $quiet;
+        $path = '';
+
+        foreach ($qr['bcode'] as $row => $cells) {
+            foreach ($cells as $col => $on) {
+                if ($on) {
+                    $path .= 'M'.($col + $quiet).' '.($row + $quiet).'h1v1h-1z';
+                }
+            }
+        }
+
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '.$size.' '.$size.'" shape-rendering="crispEdges" role="img" '
+            .'aria-label="QR-code lidmaatschapskaart '.$membership->cardYear().'">'
+            .'<rect width="'.$size.'" height="'.$size.'" fill="#fff"/><path d="'.$path.'" fill="#000"/></svg>';
+    }
+
     public function qrPayload(Membership $membership): string
     {
         $member = $membership->member;

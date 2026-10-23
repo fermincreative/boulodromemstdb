@@ -8,6 +8,7 @@ use App\Filament\Resources\Members\Actions\CancelMemberAction;
 use App\Filament\Resources\Members\Actions\ExportMembersAction;
 use App\Filament\Resources\Members\Actions\ReinstateMemberAction;
 use App\Filament\Resources\Members\MemberResource;
+use App\Filament\Tables\ClubColumn;
 use App\Models\Club;
 use App\Models\Member;
 use App\Support\MemberNumber;
@@ -47,15 +48,15 @@ class MembersTable
                     ->description(fn (Member $record): ?string => $record->contact_for
                         ? "Contactpersoon van {$record->contact_for}"
                         : null),
-                TextColumn::make('club.name')
-                    ->label('Vereniging')
-                    ->placeholder('Geen')
-                    ->sortable(),
+                ClubColumn::make(),
                 TextColumn::make('email')
                     ->label('E-mailadres')
                     ->searchable()
                     ->placeholder('—')
-                    ->copyable(),
+                    ->copyable()
+                    // About 40 characters per line; long addresses continue on the next line (they have no spaces to break on).
+                    ->wrap()
+                    ->extraAttributes(['style' => 'max-width: 40ch; overflow-wrap: anywhere;']),
                 TextColumn::make('phone_mobile')
                     ->label('Mobiel')
                     ->placeholder('—')

@@ -16,7 +16,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 /**
  * A (requested) payment by a member. It can cover more than one membership period.
  */
-#[Fillable(['member_id', 'description', 'amount_cents', 'status', 'method', 'paid_at', 'reference'])]
+#[Fillable(['member_id', 'description', 'amount_cents', 'status', 'method', 'paid_at', 'reference', 'mollie_id'])]
 class Payment extends Model
 {
     /** @use HasFactory<PaymentFactory> */

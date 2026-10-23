@@ -28,6 +28,10 @@
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Tests never use the real Mollie key from .env; tests that need Mollie set a fake key and fake the API. -->
+        <env name="MOLLIE_KEY" value="" force="true"/>
+        <env name="MOLLIE_METHODS" value="ideal,bancontact" force="true"/>
+        <env name="MOLLIE_WEBHOOK_URL" value="" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

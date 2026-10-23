@@ -2,13 +2,16 @@
 
 namespace App\Services;
 
+use App\Enums\SchedulePeriod;
 use App\Filament\Resources\Members\MemberResource;
 use App\Models\CardYearStyle;
 use App\Models\MailTemplate;
 use App\Models\Member;
+use App\Models\MemberAccount;
 use App\Models\Membership;
 use App\Models\Payment;
 use App\Support\Money;
+use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Activity;
 
 /**
@@ -45,6 +48,11 @@ class ActivityPresenter
         'badge_color' => 'achtergrond jaarvak',
         'text_color' => 'kleur jaartal',
         'year' => 'jaar',
+        'lanes' => 'banen',
+        'event_name' => 'evenement',
+        'event_name_public' => 'naam evenement openbaar',
+        'event_lanes' => 'banen evenement',
+        'remaining_lanes_reservable' => 'overige banen te reserveren',
     ];
 
     /** Log names shown as filter options on the log page. */
@@ -53,6 +61,8 @@ class ActivityPresenter
         'memberships' => 'Lidmaatschappen',
         'payments' => 'Betalingen',
         'settings' => 'Instellingen',
+        'schedule' => 'Rooster',
+        'accounts' => 'Ledenportaal',
     ];
 
     public function description(Activity $activity): string
@@ -80,6 +90,9 @@ class ActivityPresenter
             ['payments', 'cancelled'] => 'Betaling geannuleerd',
             ['payments', 'updated'] => 'Betaling gewijzigd',
             ['settings', 'created'] => $subject instanceof CardYearStyle ? "Kaartkleuren {$subject->year} toegevoegd" : 'Instelling toegevoegd',
+            ['schedule', 'created'] => 'Rooster: '.$this->scheduleSlot($activity).' open',
+            ['schedule', 'updated'] => 'Rooster gewijzigd: '.$this->scheduleSlot($activity),
+            ['schedule', 'deleted'] => 'Rooster: '.$this->scheduleSlot($activity).' gesloten',
             ['settings', 'deleted'] => 'Kaartkleuren '.($activity->properties['old']['year'] ?? '').' verwijderd',
             default => $activity->description,
         };
@@ -114,7 +127,12 @@ class ActivityPresenter
 
     public function causerName(Activity $activity): string
     {
-        return $activity->causer?->name ?? 'Systeem';
+        $causer = $activity->causer;
+
+        return match (true) {
+            $causer instanceof MemberAccount => "Lid ({$causer->email})",
+            default => $causer?->name ?? 'Systeem',
+        };
     }
 
     /**
@@ -129,6 +147,24 @@ class ActivityPresenter
             'exported' => 'warning',
             default => 'gray',
         };
+    }
+
+    /**
+     * "middag 21-10-2026" or "extra dagdeel 10:00–12:00 21-10-2026": the part of the day a Rooster entry is about (also after it was deleted).
+     */
+    private function scheduleSlot(Activity $activity): string
+    {
+        $values = $activity->properties['slot'] ?? [];
+        $date = isset($values['date']) ? Carbon::parse($values['date']) : null;
+        $period = SchedulePeriod::tryFrom((string) ($values['period'] ?? ''));
+
+        $label = mb_strtolower((string) $period?->getLabel());
+
+        if ($period === SchedulePeriod::Custom && filled($values['times'] ?? null)) {
+            $label .= ' '.$values['times'];
+        }
+
+        return trim($label.' '.$date?->format('d-m-Y'));
     }
 
     /**
@@ -149,6 +185,7 @@ class ActivityPresenter
             $subject instanceof Member => $subject,
             $subject instanceof Membership => $subject->member,
             $subject instanceof Payment => $subject->member,
+            $subject instanceof MemberAccount => $subject->members->first(),
             default => null,
         };
     }

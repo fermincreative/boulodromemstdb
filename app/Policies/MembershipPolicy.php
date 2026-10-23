@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Actions\Memberships\ActivateClubPaidMembership;
 use App\Enums\MembershipStatus;
 use App\Models\Membership;
 use App\Models\User;
@@ -39,6 +40,14 @@ class MembershipPolicy
     public function markPaid(User $user, Membership $membership): bool
     {
         return $user->canManagePayments() && $membership->status === MembershipStatus::Pending;
+    }
+
+    /**
+     * Activate a period the member's club pays for (no individual payment).
+     */
+    public function activateByClub(User $user, Membership $membership): bool
+    {
+        return $user->canManagePayments() && ActivateClubPaidMembership::canActivate($membership);
     }
 
     public function cancelPending(User $user, Membership $membership): bool

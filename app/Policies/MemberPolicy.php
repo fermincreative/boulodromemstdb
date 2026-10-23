@@ -41,6 +41,14 @@ class MemberPolicy
     }
 
     /**
+     * Renewals (and payment reminders) are part of handling payments: admins and treasurers.
+     */
+    public function renew(User $user): bool
+    {
+        return $user->canManagePayments();
+    }
+
+    /**
      * Bulk export of personal data: admins only (and logged).
      */
     public function export(User $user): bool

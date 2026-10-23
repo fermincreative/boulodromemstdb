@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Club;
 use App\Support\DutchDate;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 /**
  * Validation of the public sign-up form.
@@ -37,7 +37,7 @@ class SignUpRequest extends FormRequest
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc,filter', 'max:255', function (string $attribute, mixed $value, Closure $fail) {
                 if (! preg_match('/@[^@\s]+\.[a-z]{2,}$/i', (string) $value)) {
-                    $fail('Dit e-mailadres lijkt onvolledig. Controleer het deel na de @ (bijv. naam@voorbeeld.nl).');
+                    $fail(__('signup.validation.email_incomplete'));
                 }
             }],
             'phone_mobile' => ['nullable', 'string', 'max:30'],
@@ -50,12 +50,11 @@ class SignUpRequest extends FormRequest
                 $date = DutchDate::parse((string) $value);
 
                 if (! $date) {
-                    $fail('Vul een geldige datum in, bijvoorbeeld 10-09-1992.');
+                    $fail(__('signup.validation.birthday_invalid'));
                 } elseif ($date->isFuture() || $date->year < 1900) {
-                    $fail('Controleer uw geboortedatum.');
+                    $fail(__('signup.validation.birthday_check'));
                 }
             }],
-            'club_id' => ['nullable', Rule::exists('clubs', 'id')],
             'consent' => ['accepted'],
         ];
     }
@@ -65,20 +64,9 @@ class SignUpRequest extends FormRequest
      */
     public function attributes(): array
     {
-        return [
-            'first_name' => 'voornaam',
-            'middle_name' => 'tussenvoegsel',
-            'last_name' => 'achternaam',
-            'email' => 'e-mailadres',
-            'phone_mobile' => 'mobiel nummer',
-            'phone_home' => 'telefoonnummer',
-            'street' => 'straat en huisnummer',
-            'postal_code' => 'postcode',
-            'city' => 'woonplaats',
-            'country' => 'land',
-            'birthday' => 'geboortedatum',
-            'club_id' => 'vereniging',
-        ];
+        return collect(['first_name', 'middle_name', 'last_name', 'email', 'phone_mobile', 'phone_home', 'street', 'postal_code', 'city', 'country', 'birthday'])
+            ->mapWithKeys(fn (string $field) => [$field => mb_strtolower(__("signup.fields.{$field}"))])
+            ->all();
     }
 
     /**
@@ -87,12 +75,13 @@ class SignUpRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'consent.accepted' => 'U moet akkoord gaan met het gebruik van uw gegevens voor de ledenadministratie.',
+            'consent.accepted' => __('signup.validation.consent'),
         ];
     }
 
     /**
-     * The member attributes, ready for CreateMember.
+     * The member attributes, ready for CreateMember. Everyone signing up here joins the sign-up club (SBM Halpas);
+     * members of the other clubs are registered through their own club.
      *
      * @return array<string, mixed>
      */
@@ -103,6 +92,7 @@ class SignUpRequest extends FormRequest
         return [
             ...array_map(fn ($value) => is_string($value) ? (trim($value) ?: null) : $value, $data),
             'birthday' => DutchDate::parse($this->input('birthday'))?->toDateString(),
+            'club_id' => Club::signUpClub()?->id,
             'joined_at' => today()->toDateString(),
         ];
     }

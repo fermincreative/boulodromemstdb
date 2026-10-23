@@ -15,6 +15,8 @@ class Setting extends Model
 
     public const ANNUAL_FEE_CENTS = 'annual_fee_cents';
 
+    public const RENEWAL_WINDOW_DAYS = 'renewal_window_days';
+
     public const BANK_IBAN = 'bank_iban';
 
     public const BANK_ACCOUNT_HOLDER = 'bank_account_holder';

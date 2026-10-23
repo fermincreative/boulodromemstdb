@@ -41,7 +41,9 @@ return [
             'busy_timeout' => env('DB_BUSY_TIMEOUT', 5000),
             'journal_mode' => env('DB_JOURNAL_MODE', 'wal'),
             'synchronous' => env('DB_SYNCHRONOUS', 'normal'),
-            'transaction_mode' => 'DEFERRED',
+            // IMMEDIATE: a transaction claims the write lock at the start and waits its turn (busy_timeout), instead of
+            // failing with "database is locked" when two saves that read first overlap (e.g. two people booking the last lane).
+            'transaction_mode' => env('DB_TRANSACTION_MODE', 'IMMEDIATE'),
         ],
 
         'mysql' => [

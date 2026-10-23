@@ -1,13 +1,13 @@
 <div class="field {{ $class }} @error($name) invalid @enderror">
     <label for="{{ $name }}">
         {{ $label }}
-        @unless ($required ?? false) <span class="optional">(optioneel)</span> @endunless
+        @unless ($required ?? false) <span class="optional">{{ __('signup.optional') }}</span> @endunless
     </label>
     <input
         type="{{ $type ?? 'text' }}"
         id="{{ $name }}"
         name="{{ $name }}"
-        value="{{ old($name) }}"
+        value="{{ old($name, $value ?? null) }}"
         autocomplete="{{ $autocomplete ?? 'off' }}"
         @if ($placeholder ?? null) placeholder="{{ $placeholder }}" @endif
         @if ($inputmode ?? null) inputmode="{{ $inputmode }}" @endif

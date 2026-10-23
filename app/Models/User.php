@@ -44,6 +44,16 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         return $this->role instanceof UserRole;
     }
 
+    /**
+     * The staff member logged in to the admin panel in this browser (guard "web"), if any.
+     */
+    public static function loggedInStaff(): ?self
+    {
+        $user = auth()->guard('web')->user();
+
+        return $user instanceof self && $user->role instanceof UserRole ? $user : null;
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;

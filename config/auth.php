@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\MemberAccount;
 use App\Models\User;
 
 return [
@@ -42,6 +43,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Members in the ledenportaal on the main domain (login by e-mail link). Staff use 'web' in /admin.
+        'member' => [
+            'driver' => 'session',
+            'provider' => 'member_accounts',
+        ],
     ],
 
     /*
@@ -65,6 +72,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'member_accounts' => [
+            'driver' => 'eloquent',
+            'model' => MemberAccount::class,
         ],
 
         // 'users' => [

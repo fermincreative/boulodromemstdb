@@ -69,16 +69,6 @@ class MarkPaymentPaid
             return 'Er hoort geen lidmaatschap bij deze betaling.';
         }
 
-        if ($reason = $this->cards->cannotSendReason($latest)) {
-            return $reason;
-        }
-
-        if (blank(config('membership_card.qr_secret'))) {
-            return 'QR_SECRET is niet ingesteld; er kan geen kaart worden gemaakt.';
-        }
-
-        $this->cards->handle($latest);
-
-        return null;
+        return $this->cards->queueIfPossible($latest);
     }
 }

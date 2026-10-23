@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Members\Schemas;
 use App\Actions\Members\CreateMember;
 use App\Enums\PaymentMethod;
 use App\Filament\Forms\DateInput;
+use App\Models\Club;
 use App\Services\Fees;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -125,6 +126,8 @@ class MemberForm
                             ->createOptionForm([
                                 TextInput::make('name')->label('Naam')->required()->unique('clubs', 'name'),
                             ])
+                            ->helperText(fn (Get $get): ?string => self::clubPays($get) ? 'Deze vereniging betaalt de contributie: het lid krijgt geen eigen betaalverzoek.' : null)
+                            ->live()
                             ->columnSpan(['md' => 6]),
                         TextInput::make('contact_for')
                             ->label('Contactpersoon van')
@@ -155,6 +158,7 @@ class MemberForm
                     ->schema([
                         Toggle::make('add_membership')
                             ->label('Direct een lidmaatschap toevoegen')
+                            ->helperText(fn (Get $get): ?string => self::clubPays($get) ? 'Het lidmaatschap wacht op betaling door de vereniging. Activeer het daarna op het tabblad Lidmaatschappen of onder Verlengingen.' : null)
                             ->default(true)
                             ->live()
                             ->dehydrated(false)
@@ -169,18 +173,26 @@ class MemberForm
                             ->default('open')
                             ->helperText('Bij "nog te betalen" kunt u na het opslaan de aanmeldingsmail met betaalgegevens bekijken en versturen. Bij "al betaald" wordt het lidmaatschap direct actief.')
                             ->live()
-                            ->required(fn (Get $get): bool => (bool) $get('add_membership'))
-                            ->visible(fn (Get $get): bool => (bool) $get('add_membership'))
+                            ->required(fn (Get $get): bool => (bool) $get('add_membership') && ! self::clubPays($get))
+                            ->visible(fn (Get $get): bool => (bool) $get('add_membership') && ! self::clubPays($get))
                             ->native(false)
                             ->dehydrated(false)
                             ->columnSpan(['md' => 4]),
                         Toggle::make('notify_paid')
                             ->label('Betalingsbevestiging en lidmaatschapskaart mailen')
                             ->default(true)
-                            ->visible(fn (Get $get): bool => (bool) $get('add_membership') && in_array($get('payment'), ['cash', 'bank_transfer'], true))
+                            ->visible(fn (Get $get): bool => (bool) $get('add_membership') && ! self::clubPays($get) && in_array($get('payment'), ['cash', 'bank_transfer'], true))
                             ->dehydrated(false)
                             ->columnSpanFull(),
                     ]),
             ]);
+    }
+
+    /**
+     * The chosen club pays for its members (e.g. Mosa Petanca).
+     */
+    private static function clubPays(Get $get): bool
+    {
+        return filled($get('club_id')) && (bool) Club::whereKey($get('club_id'))->value('pays_collectively');
     }
 }

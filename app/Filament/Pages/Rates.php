@@ -2,8 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Actions\Memberships\RenewMembership;
 use App\Actions\Rates\SaveBankDetails;
 use App\Actions\Rates\SaveRates;
+use App\Actions\Rates\SaveRenewalWindow;
 use App\Filament\Forms\MoneyInput;
 use App\Models\JoiningRate;
 use App\Models\Setting;
@@ -57,6 +59,7 @@ class Rates extends Page
     {
         $this->form->fill([
             'annual_fee' => Money::toInput(app(Fees::class)->annualFeeCents()),
+            'renewal_window_days' => RenewMembership::windowDays(),
             'bank_iban' => Setting::get(Setting::BANK_IBAN),
             'bank_account_holder' => Setting::get(Setting::BANK_ACCOUNT_HOLDER),
             'joining_rates' => JoiningRate::orderBy('starts_on')->get()->map(function (JoiningRate $rate) {
@@ -84,6 +87,18 @@ class Rates extends Page
                     ->schema([
                         MoneyInput::make('annual_fee')
                             ->label('Bedrag per jaar')
+                            ->required()
+                            ->maxWidth('xs'),
+                    ]),
+                Section::make('Verlengingen')
+                    ->description('Een lid staat onder Verlengingen → "Te verlengen" zodra het lidmaatschap binnen dit aantal dagen afloopt. Eerder staat het lid onder "Nog niet aan de beurt" (en kunt u het met de hand naar "Te verlengen" zetten).')
+                    ->schema([
+                        TextInput::make('renewal_window_days')
+                            ->label('Dagen vóór de einddatum')
+                            ->integer()
+                            ->minValue(1)
+                            ->maxValue(365)
+                            ->suffix('dagen')
                             ->required()
                             ->maxWidth('xs'),
                     ]),
@@ -154,6 +169,7 @@ class Rates extends Page
             ->all();
 
         app(SaveBankDetails::class)->handle($data['bank_iban'], $data['bank_account_holder']);
+        app(SaveRenewalWindow::class)->handle((int) $data['renewal_window_days']);
 
         try {
             app(SaveRates::class)->handle((int) Money::parse($data['annual_fee']), $rates);

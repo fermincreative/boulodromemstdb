@@ -8,6 +8,7 @@ use App\Models\Membership;
 use App\Models\Payment;
 use App\Models\Setting;
 use App\Support\Money;
+use App\Support\PaymentLink;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
@@ -44,13 +45,22 @@ class MailTemplates
             '{bedrag}' => 'Te betalen bedrag (bijv. € 22,50)',
             '{omschrijving}' => 'Omschrijving van de betaling',
             '{betaalkenmerk}' => 'Wat het lid bij de overboeking vermeldt',
+            '{betaallink}' => 'Link om online te betalen (iDEAL, Bancontact)',
             '{geldig_tot}' => 'Einddatum van het lidmaatschap',
+        ],
+        MailTemplate::RENEWAL => [
+            '{jaar}' => 'Jaar van de verlenging',
+            '{bedrag}' => 'Te betalen bedrag (bijv. € 90,00)',
+            '{omschrijving}' => 'Omschrijving van de betaling',
+            '{betaalkenmerk}' => 'Wat het lid bij de overboeking vermeldt',
+            '{betaallink}' => 'Link om online te betalen (iDEAL, Bancontact)',
+            '{geldig_tot}' => 'Einddatum van het nieuwe lidmaatschap',
         ],
         MailTemplate::PAYMENT_CONFIRMATION => [
             '{bedrag}' => 'Betaald bedrag',
             '{omschrijving}' => 'Omschrijving van de betaling',
             '{betaald_op}' => 'Datum waarop de betaling is verwerkt',
-            '{betaalwijze}' => 'Contant / overboeking',
+            '{betaalwijze}' => 'Contant / overboeking / iDEAL / Bancontact',
             '{geldig_tot}' => 'Einddatum van het lidmaatschap',
         ],
         MailTemplate::CANCELLATION => [
@@ -70,13 +80,13 @@ class MailTemplates
      * @param  array<string, string>  $values
      * @return array{subject: string, body: string}
      */
-    public function render(string $key, array $values): array
+    public function render(string $key, array $values, ?string $subject = null, ?string $body = null): array
     {
-        $template = MailTemplate::forKey($key);
+        $template = ($subject === null || $body === null) ? MailTemplate::forKey($key) : null;
 
         return [
-            'subject' => strtr($template->subject, $values),
-            'body' => strtr($template->body, $values),
+            'subject' => strtr($subject ?? $template->subject, $values),
+            'body' => strtr($body ?? $template->body, $values),
         ];
     }
 
@@ -99,6 +109,21 @@ class MailTemplates
     public function renderWelcome(Payment $payment): array
     {
         return $this->render(MailTemplate::WELCOME, $this->memberValues($payment->member) + $this->paymentValues($payment));
+    }
+
+    /**
+     * Verlenging: the payment request for next year, with the online payment link. A subject and body with {placeholders}
+     * (edited for one bulk send) replace the saved text.
+     *
+     * @return array{subject: string, body: string}
+     */
+    public function renderRenewal(Payment $payment, ?string $subject = null, ?string $body = null): array
+    {
+        $startsAt = $payment->memberships()->min('starts_at');
+
+        return $this->render(MailTemplate::RENEWAL, $this->memberValues($payment->member) + $this->paymentValues($payment) + [
+            '{jaar}' => $startsAt ? substr($startsAt, 0, 4) : (string) (today()->year + 1),
+        ], $subject, $body);
     }
 
     /**
@@ -138,6 +163,7 @@ class MailTemplates
             '{bedrag}' => Money::format(2250),
             '{omschrijving}' => 'Contributie '.today()->year.' (instap vanaf 1 oktober)',
             '{betaalkenmerk}' => 'Contributie '.today()->year.' SBM-0261-91',
+            '{betaallink}' => url('/betalen/261?signature=voorbeeld'),
             '{betaald_op}' => today()->format('d-m-Y'),
             '{betaalwijze}' => 'overboeking',
             '{opgezegd_per}' => today()->format('d-m-Y'),
@@ -172,7 +198,8 @@ class MailTemplates
             '{omschrijving}' => $payment->description,
             '{betaalkenmerk}' => 'Contributie '.($firstYear ? substr($firstYear, 0, 4) : today()->year).' '.$payment->member->display_number,
             '{betaald_op}' => $payment->paid_at?->format('d-m-Y') ?? '',
-            '{betaalwijze}' => mb_strtolower((string) $payment->method?->getLabel()),
+            '{betaalwijze}' => $payment->method?->isOnline() ? $payment->method->getLabel() : mb_strtolower((string) $payment->method?->getLabel()),
+            '{betaallink}' => PaymentLink::for($payment),
             '{geldig_tot}' => $endsAt ? Carbon::parse($endsAt)->format('d-m-Y') : '',
         ];
     }

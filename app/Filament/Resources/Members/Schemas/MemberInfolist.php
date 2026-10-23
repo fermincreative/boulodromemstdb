@@ -41,8 +41,21 @@ class MemberInfolist
                 Section::make('Lidmaatschap')
                     ->columns(3)
                     ->schema([
-                        TextEntry::make('club.name')->label('Vereniging')->placeholder('Geen'),
+                        TextEntry::make('club.name')
+                            ->label('Vereniging')
+                            ->placeholder('Geen')
+                            ->helperText(fn (Member $record): ?string => $record->paysCollectively() ? 'De contributie wordt betaald door de vereniging.' : null),
                         TextEntry::make('contact_for')->label('Contactpersoon van')->placeholder('—'),
+                        TextEntry::make('account.last_login_at')
+                            ->label('Ledenportaal')
+                            ->state(fn (Member $record): string => match (true) {
+                                ! $record->account => blank($record->email) ? 'Geen (geen e-mailadres)' : 'Nog niet ingelogd',
+                                $record->account->last_login_at === null => 'Nog niet ingelogd',
+                                default => 'Laatst ingelogd '.$record->account->last_login_at->format('d-m-Y H:i'),
+                            })
+                            ->helperText(fn (Member $record): ?string => $record->account && $record->account->members()->count() > 1
+                                ? 'Gedeelde login met '.$record->account->members()->whereKeyNot($record->getKey())->get()->pluck('full_name')->implode(', ').' (zelfde e-mailadres).'
+                                : null),
                         TextEntry::make('joined_at')->label('Lid sinds')->date()->placeholder('—'),
                         TextEntry::make('cancelled_at')
                             ->label('Opgezegd op')

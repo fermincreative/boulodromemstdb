@@ -54,6 +54,14 @@ class Membership extends Model
         return $this->starts_at->year;
     }
 
+    /**
+     * The member may download this card themselves: an active period that has not ended, of a member who has not left.
+     */
+    public function cardAvailable(): bool
+    {
+        return $this->isActive() && $this->ends_at->gte(today()) && ! $this->member->hasLeft();
+    }
+
     public function isActive(): bool
     {
         return $this->status === MembershipStatus::Active;

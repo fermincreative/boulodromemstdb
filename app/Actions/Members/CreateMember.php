@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Creates a member, optionally with a first membership (today until 31 December) and an open payment
  * at the joining rate. A December sign-up also gets next year's membership, in the same payment.
+ * Members of a club that pays collectively get the membership awaiting the club's payment, without a payment.
  */
 class CreateMember
 {
@@ -34,7 +35,8 @@ class CreateMember
 
             $quote = $this->fees->quoteForNewMember();
 
-            $payment = $member->payments()->create([
+            // A club that pays collectively pays for this member too: no individual payment.
+            $payment = $member->paysCollectively() ? null : $member->payments()->create([
                 'description' => $quote->description,
                 'amount_cents' => $quote->totalCents(),
                 'status' => PaymentStatus::Open,
@@ -42,7 +44,7 @@ class CreateMember
 
             foreach ($quote->periods as $period) {
                 $member->memberships()->create([
-                    'payment_id' => $payment->id,
+                    'payment_id' => $payment?->id,
                     'starts_at' => $period['starts_at'],
                     'ends_at' => $period['ends_at'],
                     'status' => MembershipStatus::Pending,

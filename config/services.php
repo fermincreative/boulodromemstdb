@@ -33,6 +33,15 @@ return [
         ]),
     ],
 
+    // Mollie (iDEAL, Bancontact). Use a test_… key to try it out; payments then show up under "Testmodus" in the Mollie dashboard.
+    'mollie' => [
+        'key' => env('MOLLIE_KEY'),
+        // Comma-separated Mollie method ids offered at checkout, e.g. "ideal,bancontact". Each must be activated in the Mollie dashboard.
+        'methods' => env('MOLLIE_METHODS', 'ideal,bancontact'),
+        // Where Mollie reports status changes (default: APP_URL/mollie/webhook). Mollie cannot reach localhost.
+        'webhook_url' => env('MOLLIE_WEBHOOK_URL'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Actions\Accounts\LinkMemberAccount;
 use App\Enums\MembershipStatus;
 use App\Support\MemberNumber;
 use Carbon\CarbonInterface;
@@ -36,6 +37,7 @@ class Member extends Model
             'birthday' => 'date:Y-m-d',
             'joined_at' => 'date:Y-m-d',
             'cancelled_at' => 'date:Y-m-d',
+            'renew_early_for' => 'integer',
         ];
     }
 
@@ -45,6 +47,10 @@ class Member extends Model
         static::creating(function (Member $member) {
             $member->member_number ??= static::nextMemberNumber();
         });
+
+        // Keep the member linked to the ledenportaal login of their e-mail address.
+        static::created(fn (Member $member) => app(LinkMemberAccount::class)->forMember($member));
+        static::updated(fn (Member $member) => $member->wasChanged('email') ? app(LinkMemberAccount::class)->emailChanged($member) : null);
     }
 
     public static function nextMemberNumber(): int
@@ -58,6 +64,16 @@ class Member extends Model
     public function club(): BelongsTo
     {
         return $this->belongsTo(Club::class);
+    }
+
+    /**
+     * The login (ledenportaal) this member belongs to, if any.
+     *
+     * @return BelongsTo<MemberAccount, $this>
+     */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(MemberAccount::class, 'member_account_id');
     }
 
     /**
@@ -87,6 +103,24 @@ class Member extends Model
             ['ends_at' => 'max', 'id' => 'max'],
             fn (Builder $query) => $query->where('status', MembershipStatus::Active),
         );
+    }
+
+    /**
+     * The active period running today: the card to show at the entrance.
+     */
+    public function membershipToday(): ?Membership
+    {
+        return $this->memberships->first(fn (Membership $membership) => $membership->isValidOn());
+    }
+
+    /**
+     * The end of the latest active period (the member's "current expiry"), e.g. 31-12-2027 when next year is paid already.
+     */
+    public function paidUntil(): ?CarbonInterface
+    {
+        return $this->memberships
+            ->filter(fn (Membership $membership) => $membership->isActive())
+            ->max(fn (Membership $membership) => $membership->ends_at);
     }
 
     /**
@@ -121,6 +155,70 @@ class Member extends Model
     public function hasLeft(?CarbonInterface $on = null): bool
     {
         return $this->cancelled_at !== null && $this->cancelled_at->lt(($on ?? today())->copy()->startOfDay());
+    }
+
+    /**
+     * Paid for by their club (e.g. Mosa Petanca): no individual payment requests.
+     */
+    public function paysCollectively(): bool
+    {
+        return (bool) $this->club?->pays_collectively;
+    }
+
+    /**
+     * Can be renewed for $year: active in the year before, no notice given, and no period in $year yet.
+     */
+    #[Scope]
+    protected function renewable(Builder $query, int $year): void
+    {
+        $query->whereNull('cancelled_at')
+            ->whereHas('memberships', fn (Builder $memberships) => $memberships
+                ->where('status', MembershipStatus::Active)
+                ->whereDate('ends_at', '>=', ($year - 1).'-01-01')
+                ->whereDate('ends_at', '<=', ($year - 1).'-12-31'))
+            ->whereDoesntHave('memberships', fn (Builder $memberships) => $memberships
+                ->where('status', '!=', MembershipStatus::Cancelled)
+                ->whereDate('ends_at', '>=', $year.'-01-01'));
+    }
+
+    /**
+     * Renewable for $year and up for it now: the membership ends on or before $cutoff, or was moved up by hand.
+     */
+    #[Scope]
+    protected function dueForRenewal(Builder $query, int $year, CarbonInterface $cutoff): void
+    {
+        $query->renewable($year)->where(fn (Builder $query) => $query
+            ->where('renew_early_for', $year)
+            ->orWhereDoesntHave('memberships', fn (Builder $memberships) => $memberships
+                ->where('status', MembershipStatus::Active)
+                ->whereDate('ends_at', '>', $cutoff)));
+    }
+
+    /**
+     * Renewable for $year, but the membership runs past $cutoff and nobody moved it up yet.
+     */
+    #[Scope]
+    protected function notYetDueForRenewal(Builder $query, int $year, CarbonInterface $cutoff): void
+    {
+        $query->renewable($year)
+            ->where(fn (Builder $query) => $query->whereNull('renew_early_for')->orWhere('renew_early_for', '!=', $year))
+            ->whereHas('memberships', fn (Builder $memberships) => $memberships
+                ->where('status', MembershipStatus::Active)
+                ->whereDate('ends_at', '>', $cutoff));
+    }
+
+    /**
+     * Has a membership starting in $year with this status; optionally only with (true) or without (false) a payment.
+     */
+    #[Scope]
+    protected function withMembershipIn(Builder $query, int $year, MembershipStatus $status, ?bool $withPayment = null): void
+    {
+        $query->whereHas('memberships', fn (Builder $memberships) => $memberships
+            ->where('status', $status)
+            ->whereDate('starts_at', '>=', $year.'-01-01')
+            ->whereDate('starts_at', '<=', $year.'-12-31')
+            ->when($withPayment === true, fn (Builder $query) => $query->whereNotNull('payment_id'))
+            ->when($withPayment === false, fn (Builder $query) => $query->whereNull('payment_id')));
     }
 
     /**

@@ -8,6 +8,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\ValidateSignature;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -29,8 +30,21 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Public sign-up form: a few attempts per hour per IP address.
+        // The language choice may be added to signed links (payment page, e-mail confirmation) without breaking them.
+        ValidateSignature::except(['lang']);
+
+        // Login links: a few per address and per connection, so nobody can flood a member's mailbox.
+        RateLimiter::for('member-login', function (Request $request) {
+            $tooMany = fn () => back()->withInput()->withErrors(['email' => __('portal.login.too_many')]);
+
+            return [
+                Limit::perHour(5)->by('email:'.mb_strtolower(trim((string) $request->input('email'))))->response($tooMany),
+                Limit::perHour(20)->by('ip:'.$request->ip())->response($tooMany),
+            ];
+        });
+
         RateLimiter::for('signup', fn (Request $request) => Limit::perHour(5)->by($request->ip())->response(
-            fn () => back()->withInput()->withErrors(['form' => 'Er zijn te veel aanmeldingen vanaf uw internetverbinding. Probeer het over een uur opnieuw.']),
+            fn () => back()->withInput()->withErrors(['form' => __('signup.validation.too_many')]),
         ));
 
         // Policy for a package model (not auto-discovered).

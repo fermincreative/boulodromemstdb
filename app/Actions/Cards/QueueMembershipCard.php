@@ -24,6 +24,24 @@ class QueueMembershipCard
         SendMembershipCard::dispatch($membership, $subject, $body, auth()->id());
     }
 
+    /**
+     * Queues the card when it can be sent; otherwise returns why not (no e-mail address, no QR secret, …).
+     */
+    public function queueIfPossible(Membership $membership): ?string
+    {
+        if ($reason = $this->cannotSendReason($membership)) {
+            return $reason;
+        }
+
+        if (blank(config('membership_card.qr_secret'))) {
+            return 'QR_SECRET is niet ingesteld; er kan geen kaart worden gemaakt.';
+        }
+
+        $this->handle($membership);
+
+        return null;
+    }
+
     public function cannotSendReason(Membership $membership): ?string
     {
         $member = $membership->member;

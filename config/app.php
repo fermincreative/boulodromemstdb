@@ -80,7 +80,16 @@ return [
 
     'locale' => env('APP_LOCALE', 'en'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'nl'),
+
+    /*
+    | Languages of the public pages (sign-up form, payment page, ledenportaal), first = default. Texts live in
+    | lang/{locale}/signup.php, payment.php and portal.php. Add "en" here (PUBLIC_LOCALES=nl,en) once lang/en exists;
+    | a language switcher then appears in the page header. The admin panel always uses APP_LOCALE.
+    */
+    'public_locales' => array_values(array_filter(array_map('trim', explode(',', (string) env('PUBLIC_LOCALES', 'nl'))))),
+
+    'locale_names' => ['nl' => 'Nederlands', 'en' => 'English', 'fr' => 'Français', 'de' => 'Deutsch'],
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Members\RelationManagers;
 
+use App\Actions\Memberships\ActivateClubPaidMembership;
 use App\Actions\Memberships\AddMembership;
 use App\Actions\Memberships\CancelPendingMembership;
 use App\Actions\Memberships\UpdateMembership;
@@ -24,6 +25,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -115,7 +117,7 @@ class MembershipsRelationManager extends RelationManager
                 TextColumn::make('payment.amount_cents')
                     ->label('Betaling')
                     ->formatStateUsing(fn (Membership $record): string => Money::format($record->payment->amount_cents).' · '.$record->payment->status->getLabel())
-                    ->placeholder('—'),
+                    ->placeholder(fn (): string => $this->getOwnerRecord()->paysCollectively() ? 'Via '.$this->getOwnerRecord()->club->name : '—'),
                 TextColumn::make('card_sent_at')
                     ->label('Kaart verstuurd')
                     ->dateTime()
@@ -140,6 +142,7 @@ class MembershipsRelationManager extends RelationManager
             ])
             ->recordActions([
                 $this->markPaidAction(),
+                $this->activateByClubAction(),
                 ActionGroup::make([
                     ...CardActions::all(),
                     EditAction::make()
@@ -173,6 +176,8 @@ class MembershipsRelationManager extends RelationManager
                 ? "{$record->payment->description}: ".Money::format($record->payment->amount_cents).'. Het lidmaatschap wordt actief.'
                 : 'Bij dit lidmaatschap hoort nog geen betaling; die wordt nu vastgelegd. Het lidmaatschap wordt actief.')
             ->modalSubmitActionLabel('Markeer als betaald')
+            // Periods the club pays for are activated with "Activeren" instead.
+            ->hidden(fn (Membership $record): bool => ActivateClubPaidMembership::canActivate($record) && $this->getOwnerRecord()->paysCollectively())
             ->schema(fn (Membership $record): array => [
                 ...($record->payment?->isOpen() ? [] : [
                     MoneyInput::make('amount')
@@ -196,6 +201,30 @@ class MembershipsRelationManager extends RelationManager
 
                 Notification::make()
                     ->title('Betaling geregistreerd')
+                    ->body($note ? "Geen kaart gemaild: {$note}" : 'De lidmaatschapskaart wordt gemaild.')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    private function activateByClubAction(): Action
+    {
+        return Action::make('activateByClub')
+            ->label('Activeren')
+            ->icon(Heroicon::OutlinedCheckBadge)
+            ->color('success')
+            ->modalHeading(fn (): string => 'Betaald door '.($this->getOwnerRecord()->club?->name ?? 'de vereniging'))
+            ->modalDescription('De vereniging heeft de contributie voor dit lid betaald. Het lidmaatschap wordt actief.')
+            ->modalSubmitActionLabel('Activeren')
+            ->schema([
+                Toggle::make('send_card')->label('Lidmaatschapskaart direct mailen')->default(true),
+            ])
+            ->authorize('activateByClub')
+            ->action(function (Membership $record, array $data): void {
+                $note = app(ActivateClubPaidMembership::class)->handle($record, (bool) $data['send_card']);
+
+                Notification::make()
+                    ->title('Lidmaatschap geactiveerd')
                     ->body($note ? "Geen kaart gemaild: {$note}" : 'De lidmaatschapskaart wordt gemaild.')
                     ->success()
                     ->send();
