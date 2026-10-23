@@ -43,6 +43,11 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Changing details sends a confirmation e-mail to a new address: limited per member account.
+        RateLimiter::for('contact-details', fn (Request $request) => Limit::perHour(10)
+            ->by('member:'.(auth('member')->id() ?? $request->ip()))
+            ->response(fn () => back()->withInput()->withErrors(['email' => __('portal.edit.too_many')])));
+
         RateLimiter::for('signup', fn (Request $request) => Limit::perHour(5)->by($request->ip())->response(
             fn () => back()->withInput()->withErrors(['form' => __('signup.validation.too_many')]),
         ));

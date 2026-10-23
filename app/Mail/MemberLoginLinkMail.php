@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Actions\Accounts\SendLoginLink;
 use App\Models\MemberAccount;
+use App\Support\Markdown;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -24,7 +25,7 @@ class MemberLoginLinkMail extends Mailable
     {
         return new Content(markdown: 'mail.template', with: [
             'body' => __('portal.login_mail.body', [
-                'name' => $this->account->greetingName(),
+                'name' => Markdown::escape($this->account->greetingName()),
                 'association' => config('membership_card.association_name'),
                 'url' => $this->url,
                 'minutes' => SendLoginLink::VALID_MINUTES,

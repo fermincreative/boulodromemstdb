@@ -2,6 +2,7 @@
 
 namespace App\Actions\Memberships;
 
+use App\Actions\Accounts\LinkMemberAccount;
 use App\Actions\Cards\QueueMembershipCard;
 use App\Enums\MembershipStatus;
 use App\Models\Member;
@@ -37,6 +38,8 @@ class ActivateClubPaidMembership
                 ->withProperties(['club' => $club?->name])
                 ->log('Lidmaatschap actief: betaald via '.($club?->name ?? 'de vereniging'));
         });
+
+        app(LinkMemberAccount::class)->forMember($membership->member);
 
         return $sendCard ? $this->cards->queueIfPossible($membership) : 'Kaart versturen is uitgezet.';
     }

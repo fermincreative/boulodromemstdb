@@ -3,13 +3,15 @@
 namespace App\Actions\Members;
 
 use App\Actions\Accounts\LinkMemberAccount;
+use App\Mail\EmailChangedNoticeMail;
 use App\Models\Member;
+use Illuminate\Support\Facades\Mail;
 use InvalidArgumentException;
 use Spatie\Activitylog\Facades\CauserResolver;
 
 /**
  * The member clicked the confirmation link in the mailbox of their new address: the address is changed.
- * The login follows automatically (LinkMemberAccount::emailChanged).
+ * The login follows automatically (LinkMemberAccount::emailChanged), and the old address is told about the change.
  */
 class ConfirmEmailChange
 {
@@ -19,8 +21,15 @@ class ConfirmEmailChange
             throw new InvalidArgumentException('Deze bevestiging geldt niet meer.');
         }
 
+        $old = $member->email;
+
         CauserResolver::setCauser($member->account);
         $member->update(['email' => LinkMemberAccount::normalize($email)]);
+
+        // Tell the old address: if someone else made this change, the member finds out.
+        if (filled($old)) {
+            Mail::to($old)->send(new EmailChangedNoticeMail($member, $member->email));
+        }
     }
 
     /**

@@ -1,7 +1,10 @@
 <?php
 
+use App\Actions\Accounts\LinkMemberAccount;
 use App\Actions\Members\CreateMember;
+use App\Actions\Payments\MarkPaymentPaid;
 use App\Enums\MembershipStatus;
+use App\Enums\PaymentMethod;
 use App\Mail\MemberLoginLinkMail;
 use App\Models\Club;
 use App\Models\Member;
@@ -32,6 +35,8 @@ function portalMember(array $attributes = [], bool $paid = true): Member
 {
     $member = Member::factory()->create(['email' => 'jan@example.nl', 'club_id' => Club::firstWhere('name', 'SBM Halpas')->id, ...$attributes]);
     Membership::factory()->forYear(2026)->for($member)->state(['status' => $paid ? MembershipStatus::Active : MembershipStatus::Pending])->create();
+    // As after a payment (memberships only become active through MarkPaymentPaid, which links the login).
+    app(LinkMemberAccount::class)->forMember($member);
 
     return $member;
 }
@@ -175,12 +180,26 @@ describe('accounts', function () {
         get('/')->assertSee('Jan')->assertSee('Marie');
     });
 
-    it('links new members, from the panel or the sign-up form, to the account of their address', function () {
+    it('adds a new member on an address that already has a login only once they have paid', function () {
         $jan = portalMember();
         $marie = app(CreateMember::class)->handle(['first_name' => 'Marie', 'last_name' => 'Jansen', 'email' => 'JAN@example.nl'], withMembership: true);
 
+        // Anyone could sign up with Jan's address: an unpaid sign-up must not appear in his ledenportaal.
+        expect($marie->fresh()->member_account_id)->toBeNull();
+        logInAs();
+        get('/')->assertDontSee('Marie');
+
+        app(MarkPaymentPaid::class)->handle($marie->payments()->sole(), PaymentMethod::BankTransfer, sendCard: false, sendConfirmation: false);
+
         expect($marie->fresh()->member_account_id)->toBe($jan->fresh()->member_account_id)
             ->and(MemberAccount::count())->toBe(1);
+        get('/')->assertSee('Marie');
+    });
+
+    it('gives a brand-new member a login straight away, so they can log in to pay', function () {
+        $member = app(CreateMember::class)->handle(['first_name' => 'Nieuw', 'last_name' => 'Lid', 'email' => 'nieuw@example.nl'], withMembership: true);
+
+        expect($member->fresh()->account?->email)->toBe('nieuw@example.nl');
     });
 
     it('moves the account along when the only member on it changes address', function () {

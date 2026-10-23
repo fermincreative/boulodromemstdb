@@ -111,7 +111,13 @@ return [
         'save' => 'Opslaan',
         'cancel' => 'Annuleren',
         'check_fields' => 'Controleer de gemarkeerde velden.',
+        'too_many' => 'U heeft uw gegevens te vaak gewijzigd. Probeer het over een uur opnieuw.',
         'email_incomplete' => 'Dit e-mailadres lijkt onvolledig. Controleer het deel na de @ (bijv. naam@voorbeeld.nl).',
+    ],
+
+    'email_changed_mail' => [
+        'subject' => 'Uw e-mailadres is gewijzigd — :association',
+        'body' => "Beste :name,\n\nHet e-mailadres van uw lidmaatschap bij :association is zojuist via het ledenportaal gewijzigd in :email. Vanaf nu logt u met dat adres in en ontvangt u daar onze e-mails.\n\n**Heeft u dit niet zelf gedaan?** Neem dan direct contact op met de ledenadministratie via :contact, dan zetten wij het terug.\n\nMet vriendelijke groet,\n\nLedenadministratie :association",
     ],
 
     'email_change' => [

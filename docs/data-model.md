@@ -81,7 +81,7 @@ One row per person, kept for life: members are never deleted, only cancelled (`M
 | Column | Meaning |
 |---|---|
 | `member_number` | Permanent number, unique, never reused or changed. Shown as `SBM-0261-91` (prefix, four digits, MOD 97-10 check digits; `App\Support\MemberNumber`, `$member->display_number`). The **plain number** is what the QR code on cards signs, so it must never change. New members get the highest number + 1 (`Member::booted`). |
-| `first_name`, `middle_name`, `last_name` | Name; `middle_name` is the Dutch *tussenvoegsel* ("van der"). `$member->full_name` joins them. The QR code carries the name as printed and its signature covers that name, so a name change does not invalidate cards already sent — but they keep showing the old name until a new card is sent. |
+| `first_name`, `middle_name`, `last_name` | Name (on the public sign-up form only letters, spaces, hyphens, apostrophes and dots; in e-mails names are Markdown-escaped, `App\Support\Markdown`); `middle_name` is the Dutch *tussenvoegsel* ("van der"). `$member->full_name` joins them. The QR code carries the name as printed and its signature covers that name, so a name change does not invalidate cards already sent — but they keep showing the old name until a new card is sent. |
 | `email` | Contact address and the login of the ledenportaal. Optional (members without e-mail are handled by staff), and **not unique**: two members (a couple) may share one. |
 | `phone_mobile`, `phone_home`, `street`, `postal_code`, `city`, `country` | Contact details. Postal codes are strings (Belgian codes are plain numbers). Members can change these themselves in the ledenportaal. |
 | `birthday` | Optional. |
@@ -191,11 +191,13 @@ One row per **e-mail address**, not per member: members sharing an address (a co
 
 Accounts are created and linked **automatically** (`LinkMemberAccount`) — never by hand:
 
-- when a member is created (panel or sign-up form) or asks for a login link, every current member with that address is linked to the account of that address;
+- when a member is created (panel or sign-up form), pays (`MarkPaymentPaid`), is activated by their club, or asks for a login link, the current members with that address are linked to the account of that address;
+- **but** anyone can sign up with any address: when an address already has an *established* member (one with an active membership, or already on the login), only established members are linked. A new, unpaid sign-up on that address joins the login once its payment comes in. A completely new address gets its login straight away, so new members can log in to pay;
+- the one-off import (still to be built) creates active memberships without a payment, so it must call `LinkMemberAccount::forMember()` itself;
 - when a member's e-mail address changes: if the member had the account to themselves, the account moves to the new address; otherwise the member moves to the account of the new address;
 - members without an e-mail address have no account.
 
-A member who changes their own address in the ledenportaal must first confirm it from the new mailbox (`UpdateContactDetails`, `ConfirmEmailChange`), because the address is the login.
+A member who changes their own address in the ledenportaal must first confirm it from the new mailbox (`UpdateContactDetails`, `ConfirmEmailChange`), because the address is the login. Afterwards the **old** address gets a notice (`EmailChangedNoticeMail`), so a change made by someone else (e.g. on an unlocked phone) does not go unnoticed.
 
 ### `member_login_tokens` — login links that were e-mailed
 

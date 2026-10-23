@@ -4,6 +4,7 @@ namespace App\Actions\Accounts;
 
 use App\Models\Member;
 use App\Models\MemberAccount;
+use App\Models\Membership;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,15 +30,22 @@ class LinkMemberAccount
             return null;
         }
 
-        $members = Member::current()->whereRaw('lower(trim(email)) = ?', [$email])->get();
+        $members = Member::current()->with('memberships')->whereRaw('lower(trim(email)) = ?', [$email])->get();
+        $account = MemberAccount::where('email', $email)->first();
+
+        // Anyone can sign up with any address. So when an address already belongs to an established member,
+        // a new sign-up on it joins that login only once it has paid (MarkPaymentPaid links it then).
+        $established = fn (Member $member) => ($account && $member->member_account_id === $account->id)
+            || $member->memberships->contains(fn (Membership $membership) => $membership->isActive());
+        $members = $members->contains($established) ? $members->filter($established) : $members;
 
         if ($members->isEmpty()) {
             // Former members can still log in to an existing account (they see that their membership has ended).
-            return MemberAccount::where('email', $email)->has('members')->first();
+            return $account?->members()->exists() ? $account : null;
         }
 
-        return DB::transaction(function () use ($email, $members) {
-            $account = MemberAccount::firstOrCreate(['email' => $email]);
+        return DB::transaction(function () use ($email, $members, $account) {
+            $account ??= MemberAccount::firstOrCreate(['email' => $email]);
 
             $members
                 ->reject(fn (Member $member) => $member->member_account_id === $account->id)

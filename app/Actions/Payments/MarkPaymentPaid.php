@@ -2,6 +2,7 @@
 
 namespace App\Actions\Payments;
 
+use App\Actions\Accounts\LinkMemberAccount;
 use App\Actions\Cards\QueueMembershipCard;
 use App\Enums\MembershipStatus;
 use App\Enums\PaymentMethod;
@@ -22,6 +23,7 @@ class MarkPaymentPaid
     public function __construct(
         private QueueMembershipCard $cards,
         private MailTemplates $templates,
+        private LinkMemberAccount $accounts,
     ) {}
 
     /**
@@ -55,6 +57,8 @@ class MarkPaymentPaid
         });
 
         $member = $payment->member;
+        // Now established: a sign-up on an address that already has a login joins it (see LinkMemberAccount).
+        $this->accounts->forMember($member);
 
         if ($sendConfirmation && filled($member->email)) {
             $mail = $this->templates->renderPaymentConfirmation($payment->fresh());

@@ -64,6 +64,7 @@ return [
         'birthday_invalid' => 'Vul een geldige datum in, bijvoorbeeld 10-09-1992.',
         'birthday_check' => 'Controleer uw geboortedatum.',
         'consent' => 'U moet akkoord gaan met het gebruik van uw gegevens voor de ledenadministratie.',
+        'name' => 'Gebruik alleen letters, spaties, koppeltekens, apostroffen en punten.',
         'too_many' => 'Er zijn te veel aanmeldingen vanaf uw internetverbinding. Probeer het over een uur opnieuw.',
     ],
 

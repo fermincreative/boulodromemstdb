@@ -27,6 +27,8 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
+use function Illuminate\Support\defer;
+
 /**
  * The ledenportaal on the main domain: log in with a link by e-mail, then see your own membership(s),
  * download your card and pay what is open. Everything is looked up through the logged-in account.
@@ -62,7 +64,12 @@ class MemberPortalController extends Controller
     {
         $data = $request->validate(['email' => ['required', 'email', 'max:255']], [], ['email' => 'e-mailadres']);
 
-        $send->handle($data['email'], $request->ip());
+        $email = $data['email'];
+        $ip = $request->ip();
+
+        // After the response has been sent: known and unknown addresses get the same answer in the same time,
+        // so response times don't reveal who is a member.
+        defer(fn () => $send->handle($email, $ip));
 
         return redirect()->route('home')->with('login_link_sent', LinkMemberAccount::normalize($data['email']));
     }

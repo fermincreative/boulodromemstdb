@@ -12,6 +12,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class SignUpRequest extends FormRequest
 {
+    private const NAME = 'regex:/^[\pL\pM][\pL\pM\s\'’.\-]*$/u';
+
     public function authorize(): bool
     {
         return true;
@@ -32,9 +34,10 @@ class SignUpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:50'],
-            'last_name' => ['required', 'string', 'max:255'],
+            // Names: letters (any language), spaces, hyphens, apostrophes and dots only — no links or markup.
+            'first_name' => ['required', 'string', 'max:100', self::NAME],
+            'middle_name' => ['nullable', 'string', 'max:50', self::NAME],
+            'last_name' => ['required', 'string', 'max:100', self::NAME],
             'email' => ['required', 'email:rfc,filter', 'max:255', function (string $attribute, mixed $value, Closure $fail) {
                 if (! preg_match('/@[^@\s]+\.[a-z]{2,}$/i', (string) $value)) {
                     $fail(__('signup.validation.email_incomplete'));
@@ -76,6 +79,9 @@ class SignUpRequest extends FormRequest
     {
         return [
             'consent.accepted' => __('signup.validation.consent'),
+            'first_name.regex' => __('signup.validation.name'),
+            'middle_name.regex' => __('signup.validation.name'),
+            'last_name.regex' => __('signup.validation.name'),
         ];
     }
 

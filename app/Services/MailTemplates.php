@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\Membership;
 use App\Models\Payment;
 use App\Models\Setting;
+use App\Support\Markdown;
 use App\Support\Money;
 use App\Support\PaymentLink;
 use Carbon\CarbonInterface;
@@ -17,6 +18,11 @@ use Illuminate\Support\Carbon;
  */
 class MailTemplates
 {
+    /**
+     * Placeholders whose values members type themselves (sign-up form): escaped in the Markdown body.
+     */
+    private const MEMBER_TYPED = ['{voornaam}', '{naam}'];
+
     /**
      * Placeholders available in every e-mail.
      *
@@ -86,7 +92,11 @@ class MailTemplates
 
         return [
             'subject' => strtr($subject ?? $template->subject, $values),
-            'body' => strtr($body ?? $template->body, $values),
+            // The body is Markdown: values members typed themselves must not become links or formatting.
+            'body' => strtr($body ?? $template->body, array_merge($values, array_map(
+                fn (string $value) => Markdown::escape($value),
+                array_intersect_key($values, array_flip(self::MEMBER_TYPED)),
+            ))),
         ];
     }
 

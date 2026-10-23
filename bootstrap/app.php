@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\PublicSecurityHeaders;
 use App\Http\Middleware\SetPublicLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: ['mollie/webhook']);
         // Members who are not logged in go to the login on the main domain (the admin panel has its own login).
         $middleware->redirectGuestsTo(fn () => route('home'));
-        $middleware->alias(['public.locale' => SetPublicLocale::class]);
+        $middleware->alias(['public.locale' => SetPublicLocale::class, 'public.headers' => PublicSecurityHeaders::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

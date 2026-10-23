@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Actions\Members\UpdateContactDetails;
 use App\Models\Member;
+use App\Support\Markdown;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -24,7 +25,7 @@ class ConfirmEmailChangeMail extends Mailable
     {
         return new Content(markdown: 'mail.template', with: [
             'body' => __('portal.email_change.body', [
-                'name' => $this->member->first_name,
+                'name' => Markdown::escape($this->member->first_name),
                 'association' => config('membership_card.association_name'),
                 'url' => $this->url,
                 'hours' => UpdateContactDetails::EMAIL_CONFIRMATION_HOURS,

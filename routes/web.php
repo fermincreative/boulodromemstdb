@@ -9,7 +9,7 @@ use App\Http\Controllers\VerifyCardController;
 use Illuminate\Support\Facades\Route;
 
 // Public pages in the visitor's language (PUBLIC_LOCALES; Dutch only for now).
-Route::middleware('public.locale')->group(function () {
+Route::middleware(['public.locale', 'public.headers'])->group(function () {
     // Ledenportaal: members log in with a link sent by e-mail (staff use /admin).
     Route::get('/', [MemberPortalController::class, 'home'])->name('home');
     Route::post('/inloggen', [MemberPortalController::class, 'requestLink'])->middleware('throttle:member-login')->name('portal.request');
@@ -20,7 +20,7 @@ Route::middleware('public.locale')->group(function () {
         Route::get('/mijn/kaart/{membership}/{variant}', [MemberPortalController::class, 'card'])->name('portal.card');
         Route::get('/rooster', [MemberPortalController::class, 'schedule'])->name('portal.schedule');
         Route::get('/mijn/gegevens/{member}', [MemberPortalController::class, 'edit'])->name('portal.edit');
-        Route::put('/mijn/gegevens/{member}', [MemberPortalController::class, 'update'])->name('portal.update');
+        Route::put('/mijn/gegevens/{member}', [MemberPortalController::class, 'update'])->middleware('throttle:contact-details')->name('portal.update');
     });
     // Confirming a new e-mail address works from the link in that mailbox, also when not logged in on that device.
     Route::middleware(['signed', 'throttle:30,1'])->group(function () {
@@ -42,8 +42,8 @@ Route::middleware('public.locale')->group(function () {
 });
 
 // Public page behind the QR code on membership cards. "/verify.php" keeps cards from the old ledenpas tool working.
-Route::get('/verify', VerifyCardController::class)->middleware('throttle:60,1')->name('card.verify');
-Route::get('/verify.php', VerifyCardController::class)->middleware('throttle:60,1');
+Route::get('/verify', VerifyCardController::class)->middleware(['throttle:60,1', 'public.headers'])->name('card.verify');
+Route::get('/verify.php', VerifyCardController::class)->middleware(['throttle:60,1', 'public.headers']);
 // Staff actions after scanning a card (admin login in the same browser; same permissions as the panel).
 Route::get('/kaartcontrole/inloggen', [CardCheckController::class, 'logIn'])->name('card.check.login');
 Route::middleware('auth:web')->group(function () {

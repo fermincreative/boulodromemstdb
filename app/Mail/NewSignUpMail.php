@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Filament\Resources\Members\MemberResource;
 use App\Models\Member;
+use App\Support\Markdown;
 use App\Support\Money;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -32,7 +33,7 @@ class NewSignUpMail extends Mailable implements ShouldQueue
 
         return new Content(markdown: 'mail.template', with: [
             'body' => "Er is een nieuwe aanmelding binnengekomen via de website.\n\n"
-                ."- Naam: {$this->member->full_name}\n"
+                .'- Naam: '.Markdown::escape($this->member->full_name)."\n"
                 ."- Lidnummer: {$this->member->display_number}\n"
                 .($payment ? '- Contributie: '.Money::format($payment->amount_cents)." (openstaand)\n" : '')
                 ."\nBekijk het lid in de ledenadministratie: ".MemberResource::getUrl('view', ['record' => $this->member], panel: 'admin'),

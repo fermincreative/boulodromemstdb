@@ -122,7 +122,7 @@
                         <p>Openstaand: {{ $payment->description }} — <strong>{{ \App\Support\Money::format($payment->amount_cents) }}</strong></p>
                         @if ($manage['payments']->contains($payment))
                             <form method="post" action="{{ route('card.check.collect', $payment) }}"
-                                  onsubmit="return confirm('{{ \App\Support\Money::format($payment->amount_cents) }} contant ontvangen van {{ addslashes($member->full_name) }}?')">
+                                  onsubmit="return confirm({{ \Illuminate\Support\Js::from(\App\Support\Money::format($payment->amount_cents).' contant ontvangen van '.$member->full_name.'?') }})">
                                 @csrf
                                 <input type="hidden" name="return" value="{{ request()->fullUrl() }}">
                                 <button type="submit" class="btn btn-pay">Contant ontvangen</button>
@@ -135,7 +135,7 @@
                     <div class="payment">
                         <p>Nog niet verlengd voor {{ $manage['renewYear'] }}.</p>
                         <form method="post" action="{{ route('card.check.renew', $member) }}"
-                              onsubmit="return confirm('{{ addslashes($member->full_name) }} verlengen voor {{ $manage['renewYear'] }} en {{ \App\Support\Money::format($manage['renewFee']) }} contant ontvangen?')">
+                              onsubmit="return confirm({{ \Illuminate\Support\Js::from($member->full_name.' verlengen voor '.$manage['renewYear'].' en '.\App\Support\Money::format($manage['renewFee']).' contant ontvangen?') }})">
                             @csrf
                             <input type="hidden" name="return" value="{{ request()->fullUrl() }}">
                             <button type="submit" class="btn btn-pay">Verlengen voor {{ $manage['renewYear'] }} en {{ \App\Support\Money::format($manage['renewFee']) }} contant ontvangen</button>

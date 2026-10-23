@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Accounts\LinkMemberAccount;
 use App\Mail\ConfirmEmailChangeMail;
 use App\Models\Member;
 use App\Models\MemberAccount;
@@ -28,6 +29,8 @@ function memberWithLogin(array $attributes = []): Member
         ...$attributes,
     ]);
     Membership::factory()->forYear(2026)->for($member)->create();
+    // As after a payment (memberships only become active through MarkPaymentPaid, which links the login).
+    app(LinkMemberAccount::class)->forMember($member);
 
     return $member->fresh();
 }
